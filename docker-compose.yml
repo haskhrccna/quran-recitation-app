@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: quran_db
+    environment:
+      POSTGRES_DB: quran_recitation_db
+      POSTGRES_USER: quran_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quran_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - quran_network
+
+  api:
+    build: ./backend
+    container_name: quran_api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://quran_user:${POSTGRES_PASSWORD:-secure_password}@db:5432/quran_recitation_db
+      USE_AI_ANALYSIS: ${USE_AI_ANALYSIS:-true}
+      SECRET_KEY: ${SECRET_KEY}
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - quran_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  quran_network:
+    driver: bridge
